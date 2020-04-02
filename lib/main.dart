@@ -17,31 +17,30 @@ class Home extends StatefulWidget {
 
 class _HomeState extends State<Home> {
   List _toDoList = [];
+  Map<String, dynamic> _lastRemoved;
+  int _lastRemovedPos;
   final _toDoController = TextEditingController();
 
   @override
   void initState() {
     // TODO: implement initState
     super.initState();
-    _readData().then((data){
+    _readData().then((data) {
       setState(() {
-        _toDoList = json.decode(data);  
+        _toDoList = json.decode(data);
       });
-      
     });
   }
 
-  void _addToDo(){
+  void _addToDo() {
     Map<String, dynamic> newToDo = Map();
     newToDo["title"] = _toDoController.text;
     _toDoController.text = "";
-    newToDo["ok"]=false;
+    newToDo["ok"] = false;
     setState(() {
-      _toDoList.add(newToDo);  
+      _toDoList.add(newToDo);
       _saveData();
     });
-    
-
   }
 
   @override
@@ -79,27 +78,69 @@ class _HomeState extends State<Home> {
             child: ListView.builder(
                 padding: EdgeInsets.only(top: 10.0),
                 itemCount: _toDoList.length,
-                itemBuilder: (context, index) {
-                  Map<String, dynamic> element = _toDoList[index];
-                  return CheckboxListTile(
-                    title: Text(element["title"]),
-                    value: element["ok"],
-                    onChanged: (checked){
-                      setState(() {
-                        element["ok"]=checked;
-                        _saveData();
-                      });
-                    },
-                    secondary: CircleAvatar(
-                      child: Icon(element["ok"] ? Icons.check : Icons.error),
-                    ),
-                  );
-                }),
+                itemBuilder: buildItem),
           )
         ],
       ),
     );
   }
+
+  Widget buildItem(context, index) {
+    Map<String, dynamic> element = _toDoList[index];
+    return Dismissible(
+      key: Key(DateTime.now().millisecondsSinceEpoch.toString()),
+      direction: DismissDirection.startToEnd,
+      background: Container(
+        color: Colors.red,
+        child: Align(
+          alignment: Alignment(-0.9, 0.0),
+          child: Icon(
+            Icons.delete,
+            color: Colors.white,
+          ),
+        ),
+      ),
+      child: CheckboxListTile(
+        title: Text(element["title"]),
+        value: element["ok"],
+        onChanged: (checked) {
+          setState(() {
+            element["ok"] = checked;
+            _saveData();
+          });
+        },
+        secondary: CircleAvatar(
+          child: Icon(element["ok"] ? Icons.check : Icons.error),
+        ),
+      ),
+      onDismissed: (direction) {
+        setState(() {
+          _lastRemoved = Map.from(_toDoList[index]);
+          _lastRemovedPos = index;
+          _toDoList.removeAt(index);
+          _saveData();
+
+          final snack = SnackBar(
+            content: Text("Tarefa ${_lastRemoved["title"]}"),
+            duration: Duration(seconds: 4),
+            action: SnackBarAction(
+              label: "Desfazer",
+              
+              onPressed: () {
+                setState(() {
+                  _toDoList.insert(index, _lastRemoved);
+                  _saveData();
+                });
+              },
+            ),
+          );
+
+          Scaffold.of(context).showSnackBar(snack);
+        });
+      },
+    );
+  }
+
   Future<File> _getFile() async {
     final directory = await getApplicationDocumentsDirectory();
 
